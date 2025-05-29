@@ -1,5 +1,6 @@
 use std::{collections::HashMap, iter};
 
+#[derive(PartialEq, Eq)]
 enum OrderType {
     ASK,
     BID,
@@ -137,6 +138,29 @@ impl<'a> order_book<'a> {
             bids.push((key, value));
         }
         return (bids, asks);
+    }
+
+    fn get_open_order(&mut self, user_id: &str) {
+        let open_asks: Vec<u32> = self
+            .asks
+            .iter()
+            .filter(|ask| ask.user_id == user_id)
+            .map(|ask| ask.order_id)
+            .collect();
+        let open_order: Vec<u32> = self
+            .asks
+            .iter()
+            .filter(|order| order.user_id == user_id)
+            .map(|order| order.order_id)
+            .collect();
+    }
+
+    fn get_cancel_order(&mut self, user_id: &str, order_type: OrderType) {
+        if order_type == OrderType::ASK {
+            self.asks.retain(|ask| ask.user_id != user_id);
+        } else {
+            self.bids.retain(|bid| bid.user_id != user_id);
+        }
     }
 }
 
