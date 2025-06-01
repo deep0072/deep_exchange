@@ -15,7 +15,7 @@ pub async fn sign_up(data: web::Data<AppState>, json: web::Json<Users::Users>) -
         }
     };
 
-    match sqlx::query("INSERT INTO users (username,email,pass) VLAUES 1$, $2, $3")
+    match sqlx::query("INSERT INTO users (username,email,password) VALUES ($1, $2, $3")
         .bind(&json.username)
         .bind(&json.email)
         .bind(&json.pass)
