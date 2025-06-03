@@ -1,5 +1,6 @@
 
 ## Diagram Reference
+![Alt text](/diagram/image.png)
 
 
 
