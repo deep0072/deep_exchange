@@ -1,4 +1,4 @@
-use std::{collections::HashMap, iter};
+use std::{collections::HashMap, iter, str::SplitAsciiWhitespace};
 
 #[derive(PartialEq, Eq)]
 enum OrderType {
@@ -160,6 +160,15 @@ impl<'a> order_book<'a> {
             self.asks.retain(|ask| ask.user_id != user_id);
         } else {
             self.bids.retain(|bid| bid.user_id != user_id);
+        }
+    }
+
+    fn add_order(&mut self, placed_order: order) -> (Vec<filled>, u32) {
+        if placed_order.order_type == OrderType::BID {
+            self.match_bid(placed_order)
+        } else {
+            let (filled_qty, executed_qty) = self.match_ask(placed_order);
+            (filled_qty, executed_qty)
         }
     }
 }
