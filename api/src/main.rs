@@ -3,6 +3,8 @@ use db::conn::Pool;
 use dotenvy::dotenv;
 use routes::urls::config;
 use std::env;
+
+use crate::home_page::home;
 mod auth;
 mod db;
 mod home_page;
