@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use redis::{AsyncTypedCommands, Client, RedisResult, aio::MultiplexedConnection};
-use serde::Serialize;
+use serde::{Serialize, de::DeserializeOwned};
 use tokio::sync::OnceCell;
 static SHARED_CONNECTION_CELL: OnceCell<Arc<MultiplexedConnection>> = OnceCell::const_new();
 
@@ -45,6 +45,26 @@ impl RedisManager {
         })?;
         let mut conn = (*self.connection).clone();
         conn.lpush(list_key, json_string).await?;
+        Ok(())
+    }
+
+    pub async fn pop_message<T: DeserializeOwned>(
+        &self,
+        list_key: &str,
+        message: &mut T,
+    ) -> RedisResult<()> {
+        let mut conn = (*self.connection).clone();
+        let json_string: Option<String> = conn.rpop(list_key, None).await?;
+        if let Some(json_string) = json_string {
+            let deserialized_message: T = serde_json::from_str(&json_string).map_err(|e| {
+                redis::RedisError::from((
+                    redis::ErrorKind::TypeError,
+                    "json deserialization failed",
+                    e.to_string(),
+                ))
+            })?;
+            *message = deserialized_message;
+        }
         Ok(())
     }
 }

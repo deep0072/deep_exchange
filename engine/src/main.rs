@@ -17,4 +17,5 @@ async fn main() -> RedisResult<()> {
             continue;
         }
     }
+    Ok(())
 }
