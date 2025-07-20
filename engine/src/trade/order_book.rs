@@ -58,7 +58,7 @@ impl<'a> order_book<'a> {
             if bid.price >= sell_order.price && executed_qty <= sell_order.quantity {
                 let filled_qty = (sell_order.quantity - executed_qty).min(bid.quantity);
                 executed_qty += filled_qty;
-                bid.filled_qty = filled_qty;
+                bid.filled_qty += filled_qty;
                 self.last_traded_id += 1;
                 self.current_price = bid.price;
 
@@ -91,6 +91,7 @@ impl<'a> order_book<'a> {
             if ask.price <= buy_order.price && executed_qty <= buy_order.quantity {
                 let fills_qty = (buy_order.quantity - executed_qty).min(ask.quantity);
                 executed_qty += fills_qty;
+                ask.filled_qty += fills_qty;
                 self.last_traded_id += 1;
                 self.current_price = ask.price;
 
@@ -147,8 +148,8 @@ impl<'a> order_book<'a> {
             .filter(|ask| ask.user_id == user_id)
             .map(|ask| ask.order_id)
             .collect();
-        let open_order: Vec<u32> = self
-            .asks
+        let open_bid: Vec<u32> = self
+            .bids
             .iter()
             .filter(|order| order.user_id == user_id)
             .map(|order| order.order_id)

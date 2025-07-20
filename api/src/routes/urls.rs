@@ -5,7 +5,7 @@ use actix_web::{
 
 use crate::{
     auth::register::{sign_up, user_login},
-    home_page::home::{self, home},
+    home_page::home::{self, place_order},
     middleware::auth_middleware::check_auth_middleware,
 };
 
@@ -19,9 +19,9 @@ pub fn config(cfg: &mut web::ServiceConfig) {
                     .route("/sign_up", web::post().to(sign_up)),
             )
             .service(
-                web::scope("/dashboard")
+                web::scope("/order")
                     .wrap(from_fn(check_auth_middleware))
-                    .service(web::resource("order").route(web::get().to(home))),
+                    .service(web::resource("/").route(web::get().to(place_order))),
             ),
     );
 }
