@@ -16,7 +16,7 @@ pub struct UserClaims {
     exp: usize,
     iat: usize,
     pub user: String,
-    pub id: i32,
+    pub id: u32,
 }
 
 #[derive(Serialize)]

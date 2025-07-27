@@ -8,17 +8,17 @@ use crate::{
 };
 
 pub async fn sign_up(data: web::Data<AppState>, json: web::Json<Users::Users>) -> impl Responder {
-    let hash_pass = match hash(&json.pass, DEFAULT_COST) {
+    let hash_pass = match hash(&json.password, DEFAULT_COST) {
         Ok(hashed) => hashed,
         Err(e) => {
             return HttpResponse::InternalServerError().json(format!("failed to hash pass {}", e));
         }
     };
 
-    match sqlx::query("INSERT INTO users (username,email,password) VALUES ($1, $2, $3")
+    match sqlx::query("INSERT INTO users (username,email,password) VALUES ($1, $2, $3)")
         .bind(&json.username)
         .bind(&json.email)
-        .bind(&json.pass)
+        .bind(&hash_pass)
         .execute(&data.db)
         .await
     {
@@ -39,9 +39,9 @@ pub async fn user_login(
     .fetch_one(&data.db)
     .await
     {
-        Ok(user) => match verify(&json.pass, &user.password) {
+        Ok(user) => match verify(&json.password, &user.password) {
             Ok(true) => {
-                let token = encode_jwt(user.username, user.id);
+                let token = encode_jwt(user.username, user.id as u32);
                 let response = token_response {
                     access_token: token,
                 };

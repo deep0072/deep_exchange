@@ -20,19 +20,21 @@ impl RedisManager {
         Ok(Arc::new(conn))
     }
 
-    async fn get_instance() -> RedisResult<&'static RedisManager> {
+    pub async fn get_instance() -> RedisResult<RedisManager> {
         static MANAGER_INSTANCE_CELL: OnceCell<RedisManager> = OnceCell::const_new();
 
-        MANAGER_INSTANCE_CELL
+        let instance = MANAGER_INSTANCE_CELL
             .get_or_try_init(|| async {
                 let shared_conn = SHARED_CONNECTION_CELL
                     .get_or_try_init(Self::new_connection)
                     .await?;
-                Ok(RedisManager {
+
+                Ok::<RedisManager, redis::RedisError>(RedisManager {
                     connection: shared_conn.clone(),
                 })
             })
-            .await
+            .await?;
+        Ok(instance.clone())
     }
 
     pub async fn push_message(&self, list_key: &str, message: &impl Serialize) -> RedisResult<()> {
@@ -48,23 +50,30 @@ impl RedisManager {
         Ok(())
     }
 
-    pub async fn pop_message<T: DeserializeOwned>(
-        &self,
-        list_key: &str,
-        message: &mut T,
-    ) -> RedisResult<()> {
+    pub async fn pop_message<T: DeserializeOwned>(&self, list_key: &str) -> RedisResult<Option<T>> {
         let mut conn = (*self.connection).clone();
         let json_string: Option<String> = conn.rpop(list_key, None).await?;
-        if let Some(json_string) = json_string {
-            let deserialized_message: T = serde_json::from_str(&json_string).map_err(|e| {
-                redis::RedisError::from((
-                    redis::ErrorKind::TypeError,
-                    "json deserialization failed",
-                    e.to_string(),
-                ))
-            })?;
-            *message = deserialized_message;
+
+        match json_string {
+            Some(json_string) => {
+                println!("Received message: {}", &json_string);
+                let deserialized_message: T = serde_json::from_str(&json_string).map_err(|e| {
+                    redis::RedisError::from((
+                        redis::ErrorKind::TypeError,
+                        "json deserialization failed",
+                        e.to_string(),
+                    ))
+                })?;
+
+                Ok(Some(deserialized_message))
+            }
+
+            None => Ok(None),
         }
-        Ok(())
+    }
+
+    pub async fn send_to_api(&self, client_id: &str, message: String) {
+        let mut conn = (*self.connection).clone();
+        conn.publish(client_id, message);
     }
 }

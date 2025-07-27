@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 pub struct Users {
     pub username: String,
     pub email: Option<String>,
-    pub pass: String,
+    pub password: String,
 }
 
 #[derive(Serialize)]

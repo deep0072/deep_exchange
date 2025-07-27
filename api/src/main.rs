@@ -4,12 +4,11 @@ use dotenvy::dotenv;
 use routes::urls::config;
 use std::env;
 
-use crate::home_page::home;
 mod auth;
 mod db;
-mod home_page;
 mod middleware;
 mod models;
+mod redis_manager;
 mod routes;
 
 struct AppState {

@@ -10,10 +10,10 @@ pub struct UserClaim {
     exp: usize,
     iat: usize,
     pub user: String,
-    pub id: i32,
+    pub id: u32,
 }
 
-pub fn encode_jwt(username: String, id: i32) -> String {
+pub fn encode_jwt(username: String, id: u32) -> String {
     let secret_key: String = match env::var("JWT_KEY") {
         Ok(val) => val,
         Err(e) => "unable to find secret key".to_string(),
