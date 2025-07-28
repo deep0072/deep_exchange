@@ -74,6 +74,6 @@ impl RedisManager {
 
     pub async fn send_to_api(&self, client_id: &str, message: String) {
         let mut conn = (*self.connection).clone();
-        conn.publish(client_id, message);
+        conn.publish(client_id, message).await;
     }
 }

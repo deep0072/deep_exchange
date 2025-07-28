@@ -36,9 +36,10 @@ async fn main() -> RedisResult<()> {
         match response {
             Ok(Some(res)) => {
                 println!("popped message: {:?}", res);
-                let user_id = res.message.user_id.unwrap();
+                let user_id = res.id;
+
                 redis_conn
-                    .send_to_api("user_id", "reciedved".to_string())
+                    .send_to_api(&user_id, "reciedved".to_string())
                     .await;
             }
             Ok(None) => {

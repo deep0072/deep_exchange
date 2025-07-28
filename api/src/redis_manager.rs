@@ -3,6 +3,7 @@ use rand::{Rng, rng};
 use redis::{AsyncTypedCommands, Client, RedisResult, aio::MultiplexedConnection};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::OnceCell;
 use tokio::time::{Duration, timeout};
@@ -10,7 +11,7 @@ use tokio_stream::StreamExt; // Required to get messages from the stream
 
 static SHARED_PUBLISHER_CONNECTION_CELL: OnceCell<Arc<MultiplexedConnection>> =
     OnceCell::const_new();
-
+static CONNECTION_ATTEMPT_COUNT: AtomicUsize = AtomicUsize::new(0);
 #[derive(Debug, Clone)]
 pub struct RedisManager {
     publisher_connection: Arc<MultiplexedConnection>,
@@ -19,6 +20,11 @@ pub struct RedisManager {
 impl RedisManager {
     async fn new_publisher_connection() -> RedisResult<Arc<MultiplexedConnection>> {
         let client = Client::open("redis://127.0.0.1:6379")?;
+        let count = CONNECTION_ATTEMPT_COUNT.fetch_add(1, Ordering::SeqCst);
+        println!(
+            "Attempting to create a new Redis connection. Attempt number: {}",
+            count + 1
+        );
 
         let conn = client.get_multiplexed_async_connection().await?;
 
@@ -103,8 +109,8 @@ impl RedisManager {
                     "Message stream ended unexpectedly".to_string(),
                 )))
             }
-            Err(_) => {
-                println!("Timeout waiting for response on channel: {}", id);
+            Err(e) => {
+                println!("Timeout waiting for response on channel: {} {}", e, id);
                 Err(redis::RedisError::from((
                     redis::ErrorKind::IoError,
                     "Timeout",
