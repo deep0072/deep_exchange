@@ -2,7 +2,6 @@ use crate::middleware::jwt_module::UserClaim;
 use crate::redis_manager::RedisManager;
 use crate::routes::constant::OrderPayload;
 use actix_web::{HttpMessage, HttpRequest, HttpResponse, Responder, error::ErrorUnauthorized, web};
-use serde::{Deserialize, Serialize};
 
 pub async fn place_order(mut order: web::Json<OrderPayload>, req: HttpRequest) -> impl Responder {
     let extensions = req.extensions();

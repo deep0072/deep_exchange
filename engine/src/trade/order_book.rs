@@ -1,39 +1,39 @@
 use std::{collections::HashMap, iter, str::SplitAsciiWhitespace};
 
 #[derive(PartialEq, Eq)]
-enum OrderType {
+pub enum OrderType {
     ASK,
     BID,
 }
 
-struct order<'a> {
-    price: u32,
-    quantity: u32,
-    filled_qty: u32,
-    order_id: u32,
-    order_type: OrderType,
-    user_id: &'a str,
+pub struct order<'a> {
+    pub price: u32,
+    pub quantity: u32,
+    pub filled_qty: u32,
+    pub order_id: u32,
+    pub order_type: OrderType,
+    pub user_id: &'a str,
 }
 
-struct filled<'a> {
-    price: u32,
-    quantity: u32,
-    trade_id: u32,
-    other_user_id: &'a str,
-    market_order_id: u32,
+pub struct filled<'a> {
+    pub price: u32,
+    pub quantity: u32,
+    pub trade_id: u32,
+    pub other_user_id: &'a str,
+    pub market_order_id: u32,
 }
 
-struct order_book<'a> {
-    asks: Vec<order<'a>>,
-    bids: Vec<order<'a>>,
-    base_asset: &'a str,
-    quote_asset: &'a str,
-    last_traded_id: u32,
-    current_price: u32,
+pub struct order_book<'a> {
+    pub asks: Vec<order<'a>>,
+    pub bids: Vec<order<'a>>,
+    pub base_asset: &'a str,
+    pub quote_asset: &'a str,
+    pub last_traded_id: u32,
+    pub current_price: u32,
 }
 
 impl<'a> order_book<'a> {
-    fn new(
+    pub fn new(
         asks: Vec<order<'a>>,
         bids: Vec<order<'a>>,
         base_asset: &'a str,
@@ -51,7 +51,7 @@ impl<'a> order_book<'a> {
         }
     }
 
-    fn match_ask(&mut self, sell_order: order) -> (Vec<filled>, u32) {
+    pub fn match_ask(&mut self, sell_order: order) -> (Vec<filled>, u32) {
         let mut executed_qty: u32 = 0;
         let mut fills: Vec<filled> = Vec::new();
         for bid in self.bids.iter_mut() {
@@ -83,7 +83,11 @@ impl<'a> order_book<'a> {
         return (fills, executed_qty);
     }
 
-    fn match_bid(&mut self, buy_order: order) -> (Vec<filled>, u32) {
+    pub fn ticker(&self) -> String {
+        format!("{}/{}", self.base_asset, self.quote_asset).to_string()
+    }
+
+    pub fn match_bid(&mut self, buy_order: order) -> (Vec<filled>, u32) {
         let mut executed_qty: u32 = 0;
         let mut fills: Vec<filled> = Vec::new();
 
@@ -119,7 +123,7 @@ impl<'a> order_book<'a> {
         return (fills, executed_qty);
     }
 
-    fn get_depth(&mut self) -> (Vec<(u32, u32)>, Vec<(u32, u32)>) {
+    pub fn get_depth(&mut self) -> (Vec<(u32, u32)>, Vec<(u32, u32)>) {
         let mut bids: Vec<(u32, u32)> = Vec::new();
         let mut asks: Vec<(u32, u32)> = Vec::new();
         let mut bids_obj: HashMap<u32, u32> = HashMap::new();
@@ -141,7 +145,7 @@ impl<'a> order_book<'a> {
         return (bids, asks);
     }
 
-    fn get_open_order(&mut self, user_id: &str) {
+    pub fn get_open_order(&mut self, user_id: &str) {
         let open_asks: Vec<u32> = self
             .asks
             .iter()
@@ -156,7 +160,7 @@ impl<'a> order_book<'a> {
             .collect();
     }
 
-    fn get_cancel_order(&mut self, user_id: &str, order_type: OrderType) {
+    pub fn get_cancel_order(&mut self, user_id: &str, order_type: OrderType) {
         if order_type == OrderType::ASK {
             self.asks.retain(|ask| ask.user_id != user_id);
         } else {
@@ -164,7 +168,7 @@ impl<'a> order_book<'a> {
         }
     }
 
-    fn add_order(&mut self, placed_order: order) -> (Vec<filled>, u32) {
+    pub fn add_order(&mut self, placed_order: order) -> (Vec<filled>, u32) {
         if placed_order.order_type == OrderType::BID {
             self.match_bid(placed_order)
         } else {

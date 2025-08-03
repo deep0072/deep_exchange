@@ -6,6 +6,10 @@ mod trade;
 use redis_manager::RedisManager;
 use std::time::Duration;
 use tokio::time::sleep;
+use trade::engine::Engine;
+
+use crate::types::api_message::message_from_api;
+mod types;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Order {
@@ -25,11 +29,9 @@ struct message {
 #[actix_web::main]
 async fn main() -> RedisResult<()> {
     println!("Hello, world!");
+    let mut engine = Engine { orderbooks: vec![] };
 
     let redis_conn = RedisManager::get_instance().await?;
-
-    // let client = redis::Client::open("redis://127.0.0.1/").unwrap();
-    // let mut client_conn = client.get_connection().unwrap();
 
     loop {
         let response: RedisResult<Option<message>> = redis_conn.pop_message("order").await;
@@ -37,6 +39,14 @@ async fn main() -> RedisResult<()> {
             Ok(Some(res)) => {
                 println!("popped message: {:?}", res);
                 let user_id = res.id;
+                let order_msg: message_from_api = message_from_api {
+                    market_pair: res.message.market_pair,
+                    price: res.message.price.to_string(),
+                    quantity: res.message.quantity.to_string(),
+                    user_id: res.message.user_id,
+                    side: res.message.side,
+                };
+                engine.process_order(order_msg).await;
 
                 redis_conn
                     .send_to_api(&user_id, "reciedved".to_string())
