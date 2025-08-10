@@ -3,6 +3,8 @@ use std::sync::Arc;
 use redis::{AsyncTypedCommands, Client, RedisResult, aio::MultiplexedConnection};
 use serde::{Serialize, de::DeserializeOwned};
 use tokio::sync::OnceCell;
+
+use crate::types::api_message::MessageToEngine;
 static SHARED_CONNECTION_CELL: OnceCell<Arc<MultiplexedConnection>> = OnceCell::const_new();
 
 #[derive(Clone)]
@@ -56,11 +58,13 @@ impl RedisManager {
 
         match json_string {
             Some(json_string) => {
-                println!("Received message: {}", &json_string);
+                println!("Received message: {:?}", &json_string);
+
                 let deserialized_message: T = serde_json::from_str(&json_string).map_err(|e| {
+                    eprintln!("error deserializing message: {}", e.to_string());
                     redis::RedisError::from((
                         redis::ErrorKind::TypeError,
-                        "json deserialization failed",
+                        "json deserialization failed {}",
                         e.to_string(),
                     ))
                 })?;

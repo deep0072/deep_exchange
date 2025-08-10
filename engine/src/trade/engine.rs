@@ -4,14 +4,14 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 
 use crate::trade::order_book::{OrderType, filled, order, order_book};
-use crate::types::api_message::message_from_api;
+use crate::types::api_message::MessageToEngine;
 
-pub struct Engine<'a> {
-    pub orderbooks: Vec<order_book<'a>>,
+pub struct Engine {
+    pub orderbooks: Vec<order_book>,
     // pub  balance: HashMap<&'a str, u32>,
 }
 
-impl Engine<'_> {
+impl Engine {
     async fn create_order(
         &mut self,
         market: String,
@@ -23,7 +23,7 @@ impl Engine<'_> {
         let filled_qty: Vec<filled>;
         let executed_qty: u32;
         let order_type: OrderType;
-        if side == "buy" {
+        if side == "BUY" {
             order_type = OrderType::BID
         } else {
             order_type = OrderType::ASK
@@ -35,56 +35,86 @@ impl Engine<'_> {
         let order_payload: order = order {
             price: price.parse::<u32>().unwrap(),
             quantity: quantity.parse::<u32>().unwrap(),
-            user_id: &user_id,
+            user_id: user_id.clone(),
             filled_qty: 0,
             order_id: order_id,
-            order_type: order_type,
+            order_type: order_type.clone(),
         };
 
-        let maybe_book = self.orderbooks.iter_mut().find(|ob| ob.ticker() == market);
+        // println!("order book is before execution{:?}", &self.orderbooks);
+        let base_asset_quote: Vec<&str> = market.split('/').collect();
+
+        let mut maybe_book = self
+            .orderbooks
+            .iter()
+            .position((|ob| ob.ticker() == market));
+
         match maybe_book {
-            Some(book) => {
-                let (filled, executed) = book.add_order(order_payload);
-                Ok((filled, executed, executed))
+            Some(idx) => {
+                let (filled, executed) = self.orderbooks[idx].add_order(order_payload);
+                println!("order book is after  execution{:?}", &self.orderbooks);
+
+                Ok((filled, executed, user_id.parse::<u32>().unwrap()))
             }
 
             None => {
-                Err("Market not found".to_string())
-                // let mut orderbook:order = order{
-                //     price: price.parse::<u32>().unwrap(),
-                //     quantity: quantity.parse::<u32>().unwrap(),
-                //     user_id: &user_id,
-                //     filled_qty: 0,
-                //     order_id: order_id,
-                //     order_type: order_type,
-                // };
+                let mut new_order: order = order {
+                    price: price.parse::<u32>().unwrap(),
+                    quantity: quantity.parse::<u32>().unwrap(),
+                    user_id: user_id,
+                    filled_qty: 0,
+                    order_id: order_id,
+                    order_type: order_type,
+                };
 
-                // self.orderbooks.push( order_book.bids.push(order_payload));
-                // Ok((0, 0, 0))
+                let mut orderbook: order_book = order_book {
+                    bids: vec![new_order],
+                    asks: Vec::new(),
+                    base_asset: base_asset_quote[0].to_string(),
+                    quote_asset: base_asset_quote[1].to_string(),
+                    last_traded_id: 0,
+                    current_price: 0,
+                };
+                let depth: &(Vec<(u32, u32)>, Vec<(u32, u32)>) = &orderbook.get_depth();
+                println!("order book depth is after  execution{:?}", depth);
+
+                self.orderbooks.push(orderbook);
+
+                Err("Market not found".to_string())
             }
         }
     }
 
     pub async fn process_order(
         &mut self,
-        message: message_from_api,
+        message: MessageToEngine,
     ) -> Result<(Vec<filled>, u32, u32), String> {
-        let user_id = message.user_id.unwrap().to_string();
-        self.create_order(
-            message.market_pair,
-            message.price,
-            message.quantity,
-            user_id,
-            message.side,
-        )
-        .await
+        match message {
+            MessageToEngine::CreateOrder(msg) => {
+                let user_id = msg.user_id.unwrap().to_string();
+
+                Ok(self
+                    .create_order(
+                        msg.market,
+                        msg.price.to_string(),
+                        msg.quantity.to_string(),
+                        user_id,
+                        msg.side,
+                    )
+                    .await?)
+            }
+
+            MessageToEngine::GetDepth(msg) => Ok((Vec::<filled>::new(), 0, 0)),
+        }
     }
 
     fn generate_order_id(&mut self, user_id: &str) -> u32 {
+        use std::hash::{Hash, Hasher};
         let now: DateTime<Utc> = Utc::now();
-        let timestamp = now.to_rfc3339();
-        let order_id = format!("{}", user_id);
-        println!("{}", &order_id);
-        order_id.parse::<u32>().unwrap()
+        let timestamp = now.timestamp();
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        (user_id, timestamp).hash(&mut hasher);
+        let order_id = hasher.finish() as u32;
+        order_id
     }
 }

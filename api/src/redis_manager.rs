@@ -1,7 +1,8 @@
-use crate::routes::{constant::OrderPayload, orders::order};
+use crate::routes::types::GetDepthData;
+use crate::routes::{orders::order, types::MessageToEngine};
 use rand::{Rng, rng};
 use redis::{AsyncTypedCommands, Client, RedisResult, aio::MultiplexedConnection};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, ser};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -48,16 +49,19 @@ impl RedisManager {
         Ok(instance.clone())
     }
 
-    pub async fn send_and_await(&self, message: OrderPayload) -> RedisResult<()> {
+    pub async fn send_and_await(&self, message: MessageToEngine) -> RedisResult<()> {
         let sub_client = Client::open("redis://127.0.0.1:6379")?;
-
         let mut pubsub = sub_client.get_async_pubsub().await?;
 
-        let user_id = message.user_id.unwrap_or(0);
+        println!("sending message {:?}", message);
+
+        let user_id = match &message {
+            MessageToEngine::CreateOrder(msg) => msg.user_id.unwrap_or(0),
+            MessageToEngine::GetDepth(_) => 0,
+        };
+
         let id = Self::generate_time_based_random_id(user_id);
-
         pubsub.subscribe(&id).await?;
-
         let serialized_data = serde_json::to_string(&serde_json::json!({
             "id": id,
             "message": message

@@ -8,7 +8,7 @@ use std::time::Duration;
 use tokio::time::sleep;
 use trade::engine::Engine;
 
-use crate::types::api_message::message_from_api;
+use crate::types::api_message::MessageToEngine;
 mod types;
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -21,9 +21,9 @@ pub struct Order {
 }
 // {"id":"1753622092379_379312337_55509","message":{"market_pair":"SOL/USDT","price":180,"quantity":1,"side":"BUY","user_id":4}}
 #[derive(Serialize, Deserialize, Debug)]
-struct message {
+struct OuterMessage {
     id: String,
-    message: Order,
+    message: MessageToEngine,
 }
 
 #[actix_web::main]
@@ -34,31 +34,38 @@ async fn main() -> RedisResult<()> {
     let redis_conn = RedisManager::get_instance().await?;
 
     loop {
-        let response: RedisResult<Option<message>> = redis_conn.pop_message("order").await;
-        match response {
-            Ok(Some(res)) => {
-                println!("popped message: {:?}", res);
-                let user_id = res.id;
-                let order_msg: message_from_api = message_from_api {
-                    market_pair: res.message.market_pair,
-                    price: res.message.price.to_string(),
-                    quantity: res.message.quantity.to_string(),
-                    user_id: res.message.user_id,
-                    side: res.message.side,
-                };
-                engine.process_order(order_msg).await;
+        let response: Option<OuterMessage> = redis_conn.pop_message("order").await?;
 
-                redis_conn
-                    .send_to_api(&user_id, "reciedved".to_string())
-                    .await;
-            }
-            Ok(None) => {
+        let new_response = match response {
+            Some(msg) => msg,
+            None => {
+                eprintln!("Redis connection error:  Retrying in 5 seconds...",);
+                sleep(Duration::from_secs(5)).await;
                 continue;
             }
+        };
+        match engine.process_order(new_response.message).await {
+            Ok((filled_qty, executed_qty, user_id)) => {
+                redis_conn
+                    .send_to_api(&user_id.to_string(), "recieved order call back".to_string())
+                    .await;
+            }
+
             Err(e) => {
-                eprintln!("Redis connection error: {}. Retrying in 5 seconds...", e);
+                eprintln!("Error processing order: {}. Retrying in 5 seconds...", e);
                 sleep(Duration::from_secs(5)).await;
+                continue;
             }
         }
+        // match new_response {
+        //     msg => {
+        //         let engine_response = engine.process_order(msg.message).await;
+        //         let (filled, executed, user_id) = engine_response.unwrap();
+
+        //         redis_conn
+        //             .send_to_api(&user_id.to_string(), "recieved".to_string())
+        //             .await;
+        //     }
+        // }
     }
 }

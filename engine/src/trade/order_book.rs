@@ -1,43 +1,45 @@
 use std::{collections::HashMap, iter, str::SplitAsciiWhitespace};
 
-#[derive(PartialEq, Eq)]
+#[derive(PartialEq, Eq, Debug, Clone)]
 pub enum OrderType {
     ASK,
     BID,
 }
 
-pub struct order<'a> {
+#[derive(PartialEq, Eq, Debug, Clone)]
+pub struct order {
     pub price: u32,
     pub quantity: u32,
     pub filled_qty: u32,
     pub order_id: u32,
     pub order_type: OrderType,
-    pub user_id: &'a str,
+    pub user_id: String,
 }
 
-pub struct filled<'a> {
+pub struct filled {
     pub price: u32,
     pub quantity: u32,
     pub trade_id: u32,
-    pub other_user_id: &'a str,
+    pub other_user_id: String,
     pub market_order_id: u32,
 }
 
-pub struct order_book<'a> {
-    pub asks: Vec<order<'a>>,
-    pub bids: Vec<order<'a>>,
-    pub base_asset: &'a str,
-    pub quote_asset: &'a str,
+#[derive(PartialEq, Eq, Debug)]
+pub struct order_book {
+    pub asks: Vec<order>,
+    pub bids: Vec<order>,
+    pub base_asset: String,
+    pub quote_asset: String,
     pub last_traded_id: u32,
     pub current_price: u32,
 }
 
-impl<'a> order_book<'a> {
+impl order_book {
     pub fn new(
-        asks: Vec<order<'a>>,
-        bids: Vec<order<'a>>,
-        base_asset: &'a str,
-        quote_asset: &'a str,
+        asks: Vec<order>,
+        bids: Vec<order>,
+        base_asset: String,
+        quote_asset: String,
         last_traded_id: u32,
         current_price: u32,
     ) -> Self {
@@ -66,7 +68,7 @@ impl<'a> order_book<'a> {
                     price: bid.price,
                     quantity: filled_qty,
                     trade_id: self.last_traded_id,
-                    other_user_id: bid.user_id,
+                    other_user_id: bid.user_id.clone(),
                     market_order_id: bid.order_id,
                 });
             }
@@ -93,6 +95,8 @@ impl<'a> order_book<'a> {
 
         for ask in self.asks.iter_mut() {
             if ask.price <= buy_order.price && executed_qty <= buy_order.quantity {
+                println!("eating order book");
+                println!("ask {:?}", &ask);
                 let fills_qty = (buy_order.quantity - executed_qty).min(ask.quantity);
                 executed_qty += fills_qty;
                 ask.filled_qty += fills_qty;
@@ -101,9 +105,9 @@ impl<'a> order_book<'a> {
 
                 fills.push(filled {
                     price: ask.price,
-                    quantity: executed_qty,
+                    quantity: fills_qty,
                     trade_id: self.last_traded_id,
-                    other_user_id: ask.user_id,
+                    other_user_id: ask.user_id.clone(),
                     market_order_id: ask.order_id,
                 })
             }
@@ -168,9 +172,17 @@ impl<'a> order_book<'a> {
         }
     }
 
-    pub fn add_order(&mut self, placed_order: order) -> (Vec<filled>, u32) {
+    pub fn add_order(&mut self, mut placed_order: order) -> (Vec<filled>, u32) {
         if placed_order.order_type == OrderType::BID {
-            self.match_bid(placed_order)
+            // println!("placed order{:?}", placed_order);
+
+            let (filled_qty, executed_qty) = self.match_bid(placed_order.clone());
+            placed_order.filled_qty = executed_qty;
+            if executed_qty == placed_order.filled_qty {
+                return (filled_qty, executed_qty);
+            }
+            self.bids.push(placed_order);
+            return (filled_qty, executed_qty);
         } else {
             let (filled_qty, executed_qty) = self.match_ask(placed_order);
             (filled_qty, executed_qty)
