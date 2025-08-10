@@ -6,7 +6,7 @@ use actix_web::{
 use crate::{
     auth::register::{sign_up, user_login},
     middleware::auth_middleware::check_auth_middleware,
-    routes::orders::order::place_order,
+    routes::orders::order::{place_order,get_depth},
 };
 
 pub fn config(cfg: &mut web::ServiceConfig) {
@@ -21,6 +21,7 @@ pub fn config(cfg: &mut web::ServiceConfig) {
                 web::scope("/exchange")
                     .wrap(from_fn(check_auth_middleware))
                     .service(web::resource("/order").route(web::post().to(place_order))),
+                    .service(web::resource("/get-depth").route(web::get().to(get_depth))),
             ),
     );
 }

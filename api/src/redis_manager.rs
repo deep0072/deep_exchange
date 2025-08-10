@@ -57,7 +57,7 @@ impl RedisManager {
 
         let user_id = match &message {
             MessageToEngine::CreateOrder(msg) => msg.user_id.unwrap_or(0),
-            MessageToEngine::GetDepth(_) => 0,
+            MessageToEngine::GetDepth(msg) => {}
         };
 
         let id = Self::generate_time_based_random_id(user_id);
